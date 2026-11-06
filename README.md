@@ -2,6 +2,17 @@
 
 本仓库收录两个独立版本：浏览器扩展版与批量版，分别保留各自的目录结构和原有代码。
 
+## 维护者网站与更多资源
+
+| 入口 | 内容 |
+| --- | --- |
+| [🎁 AI 福利站 · 教程与资源](https://gptwelfare.com/?utm_source=github&utm_medium=readme&utm_campaign=project_resources) | 查看 AI 免费额度、教育权益、官方申请来源和使用教程。 |
+| [🛍️ GoodShopit · 商城与使用指南](https://goodshopit.online/?utm_source=github&utm_medium=readme&utm_campaign=project_resources) | 查看 AI 会员订阅商品、购买与使用指南、订单兑换和售后说明。 |
+
+先了解资源与申请条件，可前往 **AI 福利站**；需要查看商品与交付说明，可前往 **GoodShopit 商城**。
+
+## 项目版本
+
 | 版本 | 目录 | 简介 |
 | --- | --- | --- |
 | 浏览器扩展版 | [extension](./extension/) | 在浏览器中使用的扩展项目，包含扩展清单、弹窗页面、脚本与图标。 |
