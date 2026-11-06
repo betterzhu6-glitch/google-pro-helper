@@ -195,6 +195,67 @@ class FrontendStabilityTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#cfgHolder").input_value(), "UNSAVED UI TEST")
         self.assertEqual(self.errors, [])
 
+    def test_account_fields_are_rendered_as_text(self):
+        payload = '<img src=x onerror="window.accountInjected=true">'
+        self.state["accounts"] = [account(
+            "'\\\n" + payload, email=payload, password=payload,
+            recovery_email=payload, ip_info=payload, status=payload,
+            step_message=payload, expiry_date=payload, totp_secret="TEST",
+            totp_now=payload, totp_rem=payload, last_screenshot=payload,
+        )]
+        self.refresh()
+        self.assertEqual(self.page.locator("#accountsTbody img").count(), 0)
+        self.assertEqual(self.page.locator("#accountsTbody [onclick], #accountsTbody [onchange]").count(), 0)
+        self.assertEqual(self.page.locator(".account-email").inner_text(), payload)
+        self.assertEqual(self.page.locator(".step-msg").inner_text(), payload)
+        self.assertFalse(self.page.evaluate("Boolean(window.accountInjected)"))
+        self.assertEqual(self.errors, [])
+
+    def test_quoted_values_are_passed_intact_to_button_handlers(self):
+        item = account("id'\\\n<&", email="name'@example.invalid", password="p'\\\n<&\"", recovery_email="recovery'@example.invalid")
+        self.state["accounts"] = [item]
+        self.refresh()
+        self.page.evaluate("""() => {
+          window.buttonCalls = [];
+          copyAccountFull = (...args) => window.buttonCalls.push(args);
+          resetAccount = (...args) => window.buttonCalls.push(args);
+        }""")
+        self.page.get_by_role("button", name="复制", exact=True).click()
+        self.page.get_by_role("button", name="重置", exact=True).click()
+        self.assertEqual(self.page.evaluate("window.buttonCalls"), [
+            [item["id"], item["email"], item["password"], item["recovery_email"]], [item["id"]],
+        ])
+        self.page.locator("#accountsTbody select").select_option("5")
+        self.refresh()
+        self.assertEqual(self.page.locator("#accountsTbody select").input_value(), "5")
+        self.assertEqual(self.errors, [])
+
+    def test_prototype_named_account_and_status_are_safe(self):
+        self.state["accounts"] = [account("__proto__", status="__proto__"), account("constructor", status="constructor")]
+        self.refresh()
+        self.assertEqual(self.page.locator(".status-badge").all_text_contents(), ["__proto__", "constructor"])
+        self.assertEqual(self.errors, [])
+
+    def test_screenshot_paths_stay_inside_image_directory(self):
+        for filename in ["../config.json", "/api/state", "https://evil.example/x.png", "foo\\bar.png", "x.svg", "x.png?other=1"]:
+            self.page.evaluate("filename => showScreenshot('test', filename)", filename)
+            self.assertFalse(self.page.locator("#imgModal").evaluate("el => el.open"))
+        self.page.evaluate("() => showScreenshot('test', \"核验 ' 1.png\")")
+        self.assertTrue(self.page.locator("#imgModal").evaluate("el => el.open"))
+        self.assertTrue(self.page.locator("#modalImg").get_attribute("src").startswith("/screenshots/%E6%A0%B8%E9%AA%8C%20'%201.png?t="))
+
+    def test_write_request_includes_console_marker(self):
+        headers_seen = []
+
+        def stop_request(route):
+            headers_seen.append(route.request.headers)
+            route.fulfill(content_type="application/json", body='{"ok":true}')
+
+        self.page.route("**/api/stop", stop_request)
+        self.page.evaluate("() => stopAll()")
+        self.assertEqual(len(headers_seen), 1)
+        self.assertEqual(headers_seen[0].get("x-console-request"), "1")
+
 
 if __name__ == "__main__":
     unittest.main()

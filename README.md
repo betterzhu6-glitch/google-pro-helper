@@ -7,6 +7,29 @@
 | 浏览器扩展版 | [extension](./extension/) | 在浏览器中使用的扩展项目，包含扩展清单、弹窗页面、脚本与图标。 |
 | 批量版 | [batch](./batch/) | 用于批量账号任务管理的本地控制台项目，包含网页界面、后端、启动脚本与测试。 |
 
+## 本分支的安全改进
+
+- 控制台的账号、密码、状态与日志按文本显示；账号按钮使用事件委托，避免引号或 HTML 内容被当成脚本执行。
+- 后端只接受 `localhost`、`127.0.0.1` 或 `[::1]` 的 Host，拒绝跨站来源与缺少 `X-Console-Request: 1` 标记的写入请求。页面、API 和截图响应禁止缓存及 iframe 嵌入。
+- 截图预览只接受图片文件名；配置临时文件和各类本地配置不提交到 Git。
+- 修复 Windows CP936 终端无法打印 emoji 时导致 API 请求失败的问题，网页日志保留原始 Unicode 内容。
+
+这些保护针对浏览器跨站访问，不是登录认证。服务应继续监听 `127.0.0.1`；本地账号、支付信息和浏览器数据仍需妥善保管。
+
+### 开发验证
+
+在仓库根目录使用 Python 3.10+ 和已安装的 Google Chrome：
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r batch/requirements-dev.txt
+.\.venv\Scripts\python.exe -m unittest discover -s batch/tests -v
+```
+
+测试使用虚构账号、临时目录和模拟响应，不登录 Google、不访问结账页面。外部脚本调用本地写入 API 时，也必须携带 `X-Console-Request: 1` 请求头。
+
+防护设计参考：[Fetch Metadata](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site) 与 [CORS 预检](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)。
+
 ## 目录结构
 
 ```text
@@ -107,7 +130,7 @@ Linuxdo原帖在此:
      * 持卡人英文姓名
      * 免税邮编默认已填好 97201（美国俄勒冈免税州），无需修改
    - 填写后点击【💾 保存配置】。
-   - 注：脚本内置严格 0 元消费保护，仅在结账弹窗确认为 US$0.00 时才会点击订阅，全程 0 扣费。
+   - 注：脚本包含价格检查，但不能保证不会扣费；实际费用、续订时间与权益以官方结账页面及账单为准。
 
 #### 2. 批量导入 Google 账号：
    - 在网页右侧【批量放号导入区】粘贴账号（每行一个），支持以下任意格式：
@@ -137,6 +160,6 @@ Linuxdo原帖在此:
 - **浏览器扩展版**：打开 Chrome 扩展管理页，开启开发者模式，选择“加载已解压的扩展程序”，加载 `extension` 目录。
 - **批量版**：在 Windows 下进入 `batch` 目录，首次使用运行 `1_首次运行_安装依赖并启动.bat`，之后运行 `2_启动控制台.bat`。
 
-两个版本独立使用。本次整理仅增加仓库分层和本页介绍，不修改项目源代码。
+两个版本独立使用。本分支的代码改动集中在批量版控制台的安全防护及回归测试。
 
 本地账号与支付配置（`config*.json`）、环境变量文件、缓存和运行数据不提交到仓库；批量版的配置请在本地填写。

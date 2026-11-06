@@ -1732,18 +1732,25 @@
     </dialog>
     <script>
       let configInitialized = false;
-      let selectedStartSteps = {};
-      let copiedAccountMap = {};
-      let openedBrowserMap = {};
+      let selectedStartSteps = Object.create(null);
+      let copiedAccountMap = Object.create(null);
+      let openedBrowserMap = Object.create(null);
+      let renderedAccounts = [];
       let renderedAccountRows = [];
       let renderedLogsHtml = null;
       let stateRequestSequence = 0;
       let appliedStateSequence = 0;
 
+      function consoleFetch(url, options = {}) {
+        const headers = new Headers(options.headers);
+        headers.set("X-Console-Request", "1");
+        return fetch(url, { ...options, headers });
+      }
+
       async function fetchState() {
         const requestSequence = ++stateRequestSequence;
         try {
-          const res = await fetch("/api/state");
+          const res = await consoleFetch("/api/state");
           if (!res.ok) {
             throw new Error(`State request failed: ${res.status}`);
           }
@@ -1817,8 +1824,9 @@
           error: ["status-error", "异常中断"],
           stopped: ["status-pending", "已停止"],
         };
-        const [cls, label] = map[status] || ["status-pending", status];
-        return `<span class="status-badge ${cls}">${label}</span>`;
+        const [cls, label] = Object.hasOwn(map, status)
+          ? map[status] : ["status-pending", status];
+        return `<span class="status-badge ${cls}">${escapeHtml(label)}</span>`;
       }
 
       function stepDotsHtml(curStep, status) {
@@ -1839,41 +1847,42 @@
 
       function renderAccounts(accounts) {
         const tbody = document.getElementById("accountsTbody");
+        renderedAccounts = accounts;
         const rows = accounts
-          .map((acc) => {
+          .map((acc, index) => {
             const savedStart = selectedStartSteps[acc.id] || 1;
             const shotBtn = acc.last_screenshot
-              ? `<button class="btn-sm btn-secondary" onclick="showScreenshot('${acc.id}', '${acc.last_screenshot}')">查看</button>`
+              ? `<button class="btn-sm btn-secondary" data-action="screenshot">查看</button>`
               : `<span style="color:var(--muted);font-size:12px;">-</span>`;
 
             const totpHtml =
               acc.totp_secret && acc.totp_now && acc.totp_now !== "------"
-                ? `<button type="button" class="totp-pill" onclick="copyText('${acc.totp_now}')" title="点击复制 6 位动态验证码">
-                 <span>${acc.totp_now}</span>
-                 <span class="totp-rem">${acc.totp_rem}s</span>
+                ? `<button type="button" class="totp-pill" data-action="totp" title="点击复制 6 位动态验证码">
+                 <span>${escapeHtml(acc.totp_now)}</span>
+                 <span class="totp-rem">${escapeHtml(acc.totp_rem)}s</span>
                </button>`
                 : `<span class="account-recovery">辅助邮箱</span>`;
 
             return `
-            <tr>
-              <td><strong>${acc.id}</strong></td>
+            <tr data-account-index="${index}">
+              <td><strong>${escapeHtml(acc.id)}</strong></td>
               <td>
-                <div class="account-email">${acc.email}</div>
+                <div class="account-email">${escapeHtml(acc.email)}</div>
                 <div class="account-meta">
-                  密码: ${acc.password}
-                  ${acc.recovery_email ? `<br/>辅助: ${acc.recovery_email}` : ""}
-                  ${acc.ip_info ? `<span class="account-network">[${acc.ip_info}]</span>` : acc.proxy ? `<span class="account-network">[独立代理]</span>` : ""}
+                  密码: ${escapeHtml(acc.password)}
+                  ${acc.recovery_email ? `<br/>辅助: ${escapeHtml(acc.recovery_email)}` : ""}
+                  ${acc.ip_info ? `<span class="account-network">[${escapeHtml(acc.ip_info)}]</span>` : acc.proxy ? `<span class="account-network">[独立代理]</span>` : ""}
                 </div>
               </td>
               <td>${totpHtml}</td>
               <td>${statusBadgeHtml(acc.status)}</td>
               <td>
                 ${stepDotsHtml(acc.current_step || 0, acc.status)}
-                <div class="step-msg">${acc.step_message || ""}</div>
+                <div class="step-msg">${escapeHtml(acc.step_message)}</div>
               </td>
               <td>
                 <span class="expiry-date ${acc.status === "completed" ? "completed" : ""}">
-                  ${acc.expiry_date || "-"}
+                  ${escapeHtml(acc.expiry_date || "-")}
                 </span>
               </td>
               <td>${shotBtn}</td>
@@ -1881,7 +1890,7 @@
                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                   <select
                     style="padding:4px 6px; font-size:12px;"
-                    onchange="selectedStartSteps['${acc.id}'] = parseInt(this.value)"
+                    data-action="start-step"
                   >
                     <option value="1" ${savedStart === 1 ? "selected" : ""}>从 Step 1 全跑</option>
                     <option value="2" ${savedStart === 2 ? "selected" : ""}>从 Step 2 首层12M($0)</option>
@@ -1891,26 +1900,26 @@
                   </select>
                   <button
                     class="btn-sm ${acc.is_running ? "btn-danger" : "btn-success"}"
-                    onclick="${acc.is_running ? `stopSingle('${acc.id}')` : `runSingle('${acc.id}')`}"
+                    data-action="${acc.is_running ? "stop" : "run"}"
                   >
                     ${acc.is_running ? "停止" : "启动"}
                   </button>
                   <button
                     class="btn-sm ${openedBrowserMap[acc.id] ? "btn-success" : "btn-secondary"}"
-                    onclick="openBrowser('${acc.id}')"
+                    data-action="browser"
                     title="手动打开该账号的独立 Chrome 窗口"
                   >
                     ${openedBrowserMap[acc.id] ? "已打开" : "浏览器"}
                   </button>
-                  <button class="btn-sm btn-secondary" onclick="resetAccount('${acc.id}')" title="重置状态为待执行">
+                  <button class="btn-sm btn-secondary" data-action="reset" title="重置状态为待执行">
                     重置
                   </button>
-                  <button class="btn-sm btn-secondary" onclick="deleteAccount('${acc.id}')" title="移除此账号">
+                  <button class="btn-sm btn-secondary" data-action="delete" title="移除此账号">
                     移除
                   </button>
                   <button
                     class="btn-sm ${copiedAccountMap[acc.id] ? "btn-success" : "btn-secondary"}"
-                    onclick="copyAccountFull('${acc.id}', '${acc.email}', '${acc.password}', '${acc.totp_secret || acc.recovery_email || ""}')"
+                    data-action="copy"
                     title="一键复制账号信息"
                   >
                     ${copiedAccountMap[acc.id] ? "已复制" : "复制"}
@@ -1943,6 +1952,33 @@
         renderedAccountRows = rows;
       }
 
+      // Keep untrusted account values out of JavaScript and HTML attributes.
+      const accountsTable = document.getElementById("accountsTbody");
+      accountsTable.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-action]");
+        if (!button || !accountsTable.contains(button)) return;
+        const acc = renderedAccounts[button.closest("tr").dataset.accountIndex];
+        if (!acc) return;
+        const actions = {
+          screenshot: () => showScreenshot(acc.id, acc.last_screenshot),
+          totp: () => copyText(acc.totp_now),
+          stop: () => stopSingle(acc.id),
+          run: () => runSingle(acc.id),
+          browser: () => openBrowser(acc.id),
+          reset: () => resetAccount(acc.id),
+          delete: () => deleteAccount(acc.id),
+          copy: () => copyAccountFull(acc.id, acc.email, acc.password, acc.totp_secret || acc.recovery_email || ""),
+        };
+        if (Object.hasOwn(actions, button.dataset.action)) {
+          actions[button.dataset.action]();
+        }
+      });
+      accountsTable.addEventListener("change", (event) => {
+        if (!event.target.matches('select[data-action="start-step"]')) return;
+        const acc = renderedAccounts[event.target.closest("tr").dataset.accountIndex];
+        if (acc) selectedStartSteps[acc.id] = parseInt(event.target.value, 10);
+      });
+
       function renderLogs(logs) {
         const term = document.getElementById("logTerminal");
         const html = logs
@@ -1970,10 +2006,12 @@
       }
 
       function escapeHtml(str) {
-        return str
+        return String(str ?? "")
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       }
 
       function onRegionChange(region) {
@@ -1992,7 +2030,7 @@
         try {
           const region = document.getElementById("cfgTargetRegion").value;
           const tpl = document.getElementById("cfgProxyTemplate").value.trim();
-          const res = await fetch("/api/proxy/test", {
+          const res = await consoleFetch("/api/proxy/test", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -2044,7 +2082,7 @@
               document.getElementById("cfgProvince").value.trim() || "OR",
           },
         };
-        await fetch("/api/config", {
+        await consoleFetch("/api/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -2055,7 +2093,7 @@
       async function importAccounts() {
         const raw = document.getElementById("importText").value.trim();
         if (!raw) return alert("请先在文本框中粘贴要导入的账号！");
-        const res = await fetch("/api/accounts/import", {
+        const res = await consoleFetch("/api/accounts/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ raw_text: raw }),
@@ -2089,7 +2127,7 @@
         const startStep = selectedStartSteps[accountId] || 1;
         if (!validateCardBeforeRun(startStep)) return;
         await saveConfig();
-        const res = await fetch("/api/run/single", {
+        const res = await consoleFetch("/api/run/single", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2110,7 +2148,7 @@
         );
         if (!validateCardBeforeRun(startStep)) return;
         await saveConfig();
-        const res = await fetch("/api/run/batch", {
+        const res = await consoleFetch("/api/run/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_step: startStep }),
@@ -2123,7 +2161,7 @@
       }
 
       async function stopSingle(accountId) {
-        await fetch("/api/stop", {
+        await consoleFetch("/api/stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ account_id: accountId }),
@@ -2132,14 +2170,14 @@
       }
 
       async function stopAll() {
-        await fetch("/api/stop", { method: "POST" });
+        await consoleFetch("/api/stop", { method: "POST" });
         fetchState();
       }
 
       async function openBrowser(accountId) {
         openedBrowserMap[accountId] = true;
         fetchState();
-        await fetch("/api/open_browser", {
+        await consoleFetch("/api/open_browser", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ account_id: accountId }),
@@ -2151,7 +2189,7 @@
       }
 
       async function resetAccount(accountId) {
-        await fetch("/api/accounts/reset", {
+        await consoleFetch("/api/accounts/reset", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ account_id: accountId }),
@@ -2161,7 +2199,7 @@
 
       async function deleteAccount(accountId) {
         if (!confirm(`确定要从列表中移除账号 ${accountId} 吗？`)) return;
-        await fetch("/api/accounts/delete", {
+        await consoleFetch("/api/accounts/delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ account_id: accountId }),
@@ -2170,10 +2208,12 @@
       }
 
       function showScreenshot(accId, filename) {
+        // Only image basenames are valid; never resolve a path or remote URL.
+        if (typeof filename !== "string" || !/^[^/\\?#\x00-\x1f]+\.(png|jpe?g|webp)$/i.test(filename)) return;
         document.getElementById("modalTitle").textContent =
           `${accId} 最新核验截图 (${filename})`;
         document.getElementById("modalImg").src =
-          `/screenshots/${filename}?t=${Date.now()}`;
+          `/screenshots/${encodeURIComponent(filename)}?t=${Date.now()}`;
         document.getElementById("imgModal").showModal();
       }
 

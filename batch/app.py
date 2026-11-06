@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from typing import Dict, Any, List, Optional
@@ -11,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from local_security import LocalConsoleSecurity
 
 from automation_engine import (
     GoogleUltraAutomator,
@@ -30,6 +32,7 @@ os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
 app = FastAPI(title="Google AI Pro (5 TB) 零成本两年全自动控制台")
+app.add_middleware(LocalConsoleSecurity)
 app.mount("/screenshots", StaticFiles(directory=SCREENSHOTS_DIR), name="screenshots")
 
 # Global runtime state
@@ -70,7 +73,13 @@ def save_config(cfg: Dict[str, Any]):
 
 
 def append_log(line: str):
-    print(line, flush=True)
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        # Windows launch scripts use CP936, which cannot display every emoji.
+        # Keep the original Unicode message in the browser's log buffer.
+        encoding = sys.stdout.encoding or "utf-8"
+        print(line.encode(encoding, errors="backslashreplace").decode(encoding), flush=True)
     LOGS.append(line)
     if len(LOGS) > 500:
         del LOGS[: len(LOGS) - 500]
