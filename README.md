@@ -6,7 +6,7 @@
 
 [阅读 AI 福利站图文教程：扩展结构、权限与安全审查](https://gptwelfare.com/guides/google-pro-helper-source-learning/?utm_source=github&utm_medium=readme&utm_campaign=source_learning)
 
-教程配有两张原创示意图，介绍项目目录、Manifest V3 权限、脚本运行环境与本地控制台的信任边界，供开发者静态阅读和参考学习。无需安装扩展或输入真实账号；教程页只提供图文，不提供扩展包或附件。
+教程配有两张原创示意图，介绍项目目录、Manifest V3 权限、脚本运行环境与本地控制台的信任边界，供开发者静态阅读和参考学习。无需安装扩展或输入真实账号；教程页提供扩展包或附件供大家学习下载。
 
 ## 维护者网站与更多资源
 
@@ -60,12 +60,8 @@ google-pro-helper/
 ## 浏览器扩展版
 
 
-Linuxdo原帖在此:
-
-[https://linux.do/t/topic/3123997](https://linux.do/t/topic/3123997)
-
-
 （💰 免费激活 Google AI Pro 12 / 24 个月」| offer token 注入）
+https://gptwelfare.com/guides/google-pro-helper-source-learning/学习地址，有扩展压缩包。
 
 
 （我本人大部分号是用的是注册机批量搞的，原理都一样，总共整了七个目前都活过了半个月，不过被这么大批量薅，估计也活不久了）
@@ -106,7 +102,7 @@ Linuxdo原帖在此:
 
 ![image](https://i0.hdslb.com/bfs/new_dyn/c65340f450d8c110abd88de7f0faa99c3747579686817540.png@1192w.webp)
 
-**L站佬友补充：**
+**佬友补充：**
 
 > Fy6666:
 >
