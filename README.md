@@ -2,6 +2,12 @@
 
 本仓库收录两个独立版本：浏览器扩展版与批量版，分别保留各自的目录结构和原有代码。
 
+## 源码学习图文教程
+
+[阅读 AI 福利站图文教程：扩展结构、权限与安全审查](https://gptwelfare.com/guides/google-pro-helper-source-learning/?utm_source=github&utm_medium=readme&utm_campaign=source_learning)
+
+教程配有两张原创示意图，介绍项目目录、Manifest V3 权限、脚本运行环境与本地控制台的信任边界，供开发者静态阅读和参考学习。无需安装扩展或输入真实账号；教程页只提供图文，不提供扩展包或附件。
+
 ## 维护者网站与更多资源
 
 | 入口 | 内容 |
